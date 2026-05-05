@@ -22,7 +22,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     
     <style>
-        /* ========== جميع الستايلات كما هي، لم يتم التغيير ========== */
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -216,6 +215,17 @@
     </div>
 </div>
 
+<!-- ========== مودال الرمز السري ========== -->
+<div id="pinModal" class="modal">
+    <div class="modal-content" onclick="event.stopPropagation()" style="text-align:center">
+        <h3 style="color:var(--gold);margin-bottom:20px">🔐 أدخل رمز الدخول</h3>
+        <div style="font-size:50px;margin:20px 0">🔒</div>
+        <input type="password" id="adminPin" placeholder="****" maxlength="6" style="text-align:center;font-size:28px;letter-spacing:10px;width:180px;margin:auto;display:block;background:var(--accent);border:2px solid var(--gold);color:white;padding:15px;border-radius:12px">
+        <button class="admin-btn" onclick="checkPin()" style="margin-top:20px;font-size:18px">✅ دخول</button>
+        <button class="admin-btn" style="background:var(--accent);color:#fff;margin-top:10px" onclick="goBack()">❌ إلغاء</button>
+    </div>
+</div>
+
 <div id="authModal" class="modal">
     <div class="modal-content" onclick="event.stopPropagation()">
         <div class="auth-tabs">
@@ -404,11 +414,10 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
-// ==================== AI TRANSLATION ENGINE (الترجمة التلقائية) ====================
+// ==================== AI TRANSLATION ENGINE ====================
 const TranslationEngine = {
     cache: new Map(),
     
-    // دالة الترجمة الأساسية باستخدام MyMemory API (مجاني، لا يحتاج مفتاح)
     async translateText(text, targetLang) {
         if (!text || text.trim() === "") return text;
         if (targetLang === 'ar') return text;
@@ -419,15 +428,12 @@ const TranslationEngine = {
         }
         
         try {
-            // استخدام MyMemory API للترجمة (مجاني، بدون حدود كبيرة)
             const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ar|${targetLang}`;
             const response = await fetch(url);
             const data = await response.json();
             let translatedText = data.responseData.translatedText;
             
-            // MyMemory أحياناً ترجع النص نفسه إذا لم تجد ترجمة
             if (translatedText === text || !translatedText) {
-                // بديل بسيط: ترجمة الكلمات الأساسية
                 translatedText = this.basicFallbackTranslation(text, targetLang);
             }
             
@@ -439,7 +445,6 @@ const TranslationEngine = {
         }
     },
     
-    // ترجمة احتياطية بسيطة للكلمات الأساسية
     basicFallbackTranslation(text, targetLang) {
         const commonWords = {
             "شاورما": { en: "Shawarma", el: "Σαουάρμα", tr: "Şavurma", fr: "Chawarma" },
@@ -458,10 +463,9 @@ const TranslationEngine = {
                 return text.replace(word, translatedWord);
             }
         }
-        return text + ` [${targetLang}]`; // إذا لم يجد ترجمة
+        return text + ` [${targetLang}]`;
     },
     
-    // دالة مساعدة لعرض النص مع الترجمة التلقائية
     async getTranslatedText(arabicText, targetLang, callback) {
         if (!arabicText) {
             callback("");
@@ -477,7 +481,7 @@ const TranslationEngine = {
     }
 };
 
-// ==================== قائمة اللغات المدعومة ====================
+// ==================== قائمة اللغات ====================
 const LANGS = [
     {code:"ar", name:"العربية", flag:"🇸🇦", dir:"rtl"},
     {code:"en", name:"English", flag:"🇬🇧", dir:"ltr"},
@@ -486,7 +490,7 @@ const LANGS = [
     {code:"fr", name:"Français", flag:"🇫🇷", dir:"ltr"}
 ];
 
-// ==================== Theme Engine (تم تصليحه) ====================
+// ==================== Theme Engine ====================
 const ThemeEngine = {
     current: 'classic',
     themes: {
@@ -564,7 +568,6 @@ DEF.categories.forEach(c => {
 let lang = "ar", dir = "rtl", catId = null, mIdx = null, mCat = null, selSz = 0, admin = false;
 let sets = {...DEF.settings}, cartSets = {...DEF.cartSettings}, soc = {...DEF.social}, offs = [...DEF.offers], stt = {...DEF.stats}, marq = {...DEF.marquee};
 let cats = [], meals = {}, tSizes = [], eCat = null, eIdx = null, cart = [], csvc = "table", navStack = [], uploadType = null;
-// cache للترجمات المعروضة حالياً
 let translatedTextCache = new Map();
 
 // ==================== HELPERS ====================
@@ -614,7 +617,6 @@ function goCat(id) {
     document.getElementById('mealsSection').style.display = 'block';
     const catTitle = document.getElementById('catTitle');
     if (catTitle && c) {
-        // ترجمة اسم القسم تلقائياً
         getTranslatedTextAsync(c.name_ar, (translated) => {
             catTitle.innerHTML = translated;
         });
@@ -624,7 +626,6 @@ function goCat(id) {
 async function ld(p) { try { const s = await db.ref(p).get(); return s.exists() ? s.val() : null; } catch(e) { return null; } }
 async function sv(p, d) { try { await db.ref(p).set(d); return true; } catch(e) { toast("❌ فشل الحفظ"); return false; } }
 
-// دالة عرض النص مع الترجمة التلقائية (غير متزامنة)
 function getTranslatedTextAsync(arabicText, callback) {
     if (!arabicText) { callback(""); return; }
     if (lang === 'ar') { callback(arabicText); return; }
@@ -641,12 +642,10 @@ function getTranslatedTextAsync(arabicText, callback) {
     }).catch(() => callback(arabicText));
 }
 
-// دالة متزامنة للاستخدام في الحالات البسيطة (قد تعرض النص الأصلي مؤقتاً)
 function t(o, field) {
     if (!o) return '';
     const arabicText = o[field + '_ar'] || o[field] || '';
     if (lang === 'ar') return arabicText;
-    // للاستخدام المتزامن، نعيد النص الأصلي مؤقتاً وسيتم تحديثه لاحقاً
     return arabicText;
 }
 
@@ -655,7 +654,7 @@ function imgUrl(u) { return (u && u.trim()) ? u : 'https://res.cloudinary.com/de
 function getOrderWA() { return cartSets.orderWhatsApp || sets.whatsapp || '966512345678'; }
 function buildWA(msg) { const num = getOrderWA().replace(/\D/g, ''); return 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg); }
 
-// ==================== رفع الصور من الاستوديو المحلي ====================
+// ==================== رفع الصور ====================
 function uploadLocalImage(type) {
     uploadType = type;
     const input = document.createElement('input');
@@ -712,6 +711,55 @@ function uploadCatImageLocal(index) {
     input.click();
 }
 
+// ==================== 🔐 نظام الرمز السري ====================
+const ADMIN_PIN = "4753"; // 🔑 الرمز السري للدخول
+
+function openAuthModal() {
+    if (admin) {
+        showModal('adminPanel');
+    } else {
+        document.getElementById('adminPin').value = '';
+        showModal('pinModal');
+        setTimeout(() => {
+            const pinInput = document.getElementById('adminPin');
+            if (pinInput) pinInput.focus();
+        }, 300);
+    }
+}
+
+function checkPin() {
+    const pin = document.getElementById('adminPin').value;
+    
+    if (pin === ADMIN_PIN) {
+        goBack();
+        document.getElementById('loginEmail').value = '';
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('regEmail').value = '';
+        document.getElementById('regPassword').value = '';
+        document.getElementById('regConfirm').value = '';
+        
+        switchAuthTab('login');
+        setTimeout(() => showModal('authModal'), 100);
+        toast('✅ رمز صحيح - أهلاً بك');
+    } else {
+        toast('❌ الرمز غير صحيح');
+        document.getElementById('adminPin').value = '';
+        document.getElementById('adminPin').focus();
+    }
+}
+
+// حدث ضغط Enter على مربع الرمز
+document.addEventListener('DOMContentLoaded', function() {
+    const pinInput = document.getElementById('adminPin');
+    if (pinInput) {
+        pinInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkPin();
+            }
+        });
+    }
+});
+
 // ==================== AUTHENTICATION ====================
 function switchAuthTab(tab) {
     const loginForm = document.getElementById('loginForm');
@@ -732,20 +780,6 @@ function switchAuthTab(tab) {
     } else {
         loginForm.classList.remove('show');
         registerForm.classList.add('show');
-    }
-}
-
-function openAuthModal() {
-    if (admin) {
-        showModal('adminPanel');
-    } else {
-        document.getElementById('loginEmail').value = '';
-        document.getElementById('loginPassword').value = '';
-        document.getElementById('regEmail').value = '';
-        document.getElementById('regPassword').value = '';
-        document.getElementById('regConfirm').value = '';
-        switchAuthTab('login');
-        showModal('authModal');
     }
 }
 
@@ -966,13 +1000,12 @@ function switchLang(l, d) {
     document.body.style.direction = dir;
     document.body.style.textAlign = dir === "ltr" ? "left" : "right";
     document.getElementById('langDropdown').classList.remove('show');
-    // مسح cache الترجمة لإعادة الترجمة من جديد
     translatedTextCache.clear();
     renderCats(); 
     if (catId) renderMeals(); 
     updateCartIcon();
-    applyMarquee(); // لتحديث الشريط المتحرك
-    renderOffers(); // لتحديث العروض
+    applyMarquee();
+    renderOffers();
 }
 
 async function renderCats() {
@@ -989,7 +1022,6 @@ async function renderCats() {
         return;
     }
     
-    // عرض الأقسام بشكل متزامن مؤقت ثم تحديث الترجمة غير المتزامنة
     catGrid.innerHTML = cats.map(c => {
         const isClosed = c.closed === true;
         return `<div class="cat-card ${isClosed ? 'closed' : ''}" 
@@ -1000,7 +1032,6 @@ async function renderCats() {
         </div>`;
     }).join('');
     
-    // الترجمة غير المتزامنة لأسماء الأقسام
     for (const c of cats) {
         getTranslatedTextAsync(c.name_ar, (translated) => {
             const span = document.querySelector(`.cat-name-${c.id}`);
@@ -1173,7 +1204,7 @@ function updateCartSendLink() {
     const btn = document.getElementById('btnCartSend'); if (btn) btn.href = buildWA(msg);
 }
 
-// ==================== ADMIN FUNCTIONS (مع الحفاظ على جميع الوظائف الأصلية) ====================
+// ==================== ADMIN FUNCTIONS ====================
 function oShare() {
     const url = window.location.href.split('#')[0];
     document.getElementById('shareLink').value = url;
@@ -1339,7 +1370,7 @@ async function saveMeal() {
     if (catId===eCat) renderMeals(); loadMgr(); goBack(); toast("✅ تم حفظ الطبق بنجاح"); window.mealImageUrl = null;
 }
 async function delMeal() { if (eIdx===-1) return; if (!eCat||!meals[eCat]) return; const m=meals[eCat][eIdx]; if(!m) return; if(!confirm('هل أنت متأكد من حذف: '+(m.name_ar||'الطبق')+'؟')) return; meals[eCat].splice(eIdx,1); await sv('mealsData', meals); if(catId===eCat) renderMeals(); loadMgr(); goBack(); toast('🗑️ تم حذف الطبق'); }
-function doExport() { const data={settings:sets,cartSettings:cartSets,social:soc,offers:offs,stats:stt,marquee:marq,categories:cats,mealsData:meals,version:"17.0"}; const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='backup_majd_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); toast('📀 تم تحميل النسخة الاحتياطية'); goBack(); }
+function doExport() { const data={settings:sets,cartSettings:cartSets,social:soc,offers:offs,stats:stt,marquee:marq,categories:cats,mealsData:meals,version:"18.0"}; const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='backup_majd_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); toast('📀 تم تحميل النسخة الاحتياطية'); goBack(); }
 function doImport() { const inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=function(e){ const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=async function(ev){ try{ const d=JSON.parse(ev.target.result); if(d.mealsData){meals=d.mealsData;await sv('mealsData',meals);} if(d.categories){cats=d.categories;await sv('categories',cats);} if(d.offers){offs=d.offers;await sv('offers',offs);} if(d.settings){sets=d.settings;await sv('settings',sets);} if(d.cartSettings){cartSets=d.cartSettings;await sv('cartSettings',cartSets);} if(d.social){soc=d.social;await sv('social',soc);} if(d.stats){stt=d.stats;await sv('stats',stt);} if(d.marquee){marq=d.marquee;await sv('marquee',marq);} applyUI();applyMarquee();renderCats();toast('✅ تمت استعادة النسخة الاحتياطية بنجاح');goBack(); }catch(err){toast('❌ الملف غير صالح أو تالف');} }; r.readAsText(file); }; inp.click(); }
 async function doReset() { if(!confirm('⚠️ تحذير: سيتم حذف جميع البيانات وإعادة الضبط للمصنع!\n\nهل أنت متأكد؟ لا يمكن التراجع عن هذا الإجراء.')) return; if(!confirm('تأكيد نهائي: هل تريد فعلاً إعادة ضبط كل شيء؟')) return; try{ await Promise.all([sv('settings',DEF.settings),sv('cartSettings',DEF.cartSettings),sv('social',DEF.social),sv('offers',DEF.offers),sv('stats',DEF.stats),sv('marquee',DEF.marquee),sv('categories',DEF.categories),sv('mealsData',DEF.mealsData)]); localStorage.removeItem('adminEmail'); location.reload(); }catch(err){ toast('❌ فشلت إعادة الضبط. حاول مجدداً.'); } }
 
@@ -1383,7 +1414,7 @@ if ('serviceWorker' in navigator) {
 // ==================== START ====================
 init();
 renderLang();
-console.log('🚀 مطاعم مجد - v17 مع Firebase Auth وترجمة تلقائية');
+console.log('🚀 مطاعم مجد - v18 مع حماية الرمز السري');
 </script>
 </body>
 </html>
