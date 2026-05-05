@@ -215,7 +215,7 @@
     </div>
 </div>
 
-<!-- ========== مودال الرمز السري ========== -->
+<!-- مودال الرمز السري -->
 <div id="pinModal" class="modal">
     <div class="modal-content" onclick="event.stopPropagation()" style="text-align:center">
         <h3 style="color:var(--gold);margin-bottom:20px">🔐 أدخل رمز الدخول</h3>
@@ -275,7 +275,8 @@
         <h3>🏠 إعدادات المطعم</h3>
         <input type="text" id="rn" placeholder="اسم المطعم">
         <input type="text" id="rs" placeholder="النص السفلي">
-        <div class="local-upload-btn" onclick="uploadLocalImage('logo')">📷 رفع صورة الشعار (من الاستوديو)</div>
+        <div class="local-upload-btn" onclick="uploadLocalImage('logo')">📷 رفع صورة الشعار (من الجهاز)</div>
+        <div class="local-upload-btn" style="background:#c9a84c;color:#1a1111" onclick="setLogoFromUrl()">🔗 استخدام رابط مباشر للشعار</div>
         <img id="logoPreview" style="max-width:100px;margin:5px auto;display:none;border-radius:12px">
         <label>لون الخلفية</label><input type="color" id="bg">
         <label>اللون الذهبي</label><input type="color" id="gd">
@@ -464,20 +465,6 @@ const TranslationEngine = {
             }
         }
         return text + ` [${targetLang}]`;
-    },
-    
-    async getTranslatedText(arabicText, targetLang, callback) {
-        if (!arabicText) {
-            callback("");
-            return;
-        }
-        if (targetLang === 'ar') {
-            callback(arabicText);
-            return;
-        }
-        
-        const translated = await this.translateText(arabicText, targetLang);
-        callback(translated);
     }
 };
 
@@ -510,10 +497,10 @@ const ThemeEngine = {
         document.documentElement.style.setProperty('--gold', c.gold);
         document.documentElement.style.setProperty('--card-bg', c.card);
         document.documentElement.style.setProperty('--accent', c.accent);
+        localStorage.setItem('active_theme', themeName);
         if (typeof sets !== 'undefined') {
             sets.bg = c.bg; sets.gold = c.gold; sets.text = c.text;
         }
-        localStorage.setItem('active_theme', themeName);
         toast('✅ تم تغيير المظهر إلى: ' + theme.name);
     },
     
@@ -539,7 +526,7 @@ const DEF = {
     social: { fb: "", insta: "", tiktok: "" },
     offers: [],
     stats: { total: 0, items: {} },
-    marquee: { text: "👋 أهلاً وسهلاً بكم في مطاعم مجد", visible: true, bg: "rgba(201,168,76,0.15)", color: "#c9a84c", speed: 15 },
+    marquee: { text: "أهلاً وسهلاً بكم في مطاعم مجد", visible: true, bg: "rgba(201,168,76,0.15)", color: "#c9a84c", speed: 15 },
     categories: [
         {id:"shawarma", name_ar:"شاورما", name_en:"Shawarma", icon:"fa-utensils", img:"", closed:false},
         {id:"western", name_ar:"غربي", name_en:"Western", icon:"fa-flag-usa", img:"", closed:false},
@@ -663,6 +650,9 @@ function uploadLocalImage(type) {
     input.onchange = function(e) {
         const file = e.target.files[0];
         if (file) {
+            if (file.size > 500000) {
+                toast('⚠️ حجم الصورة كبير. استخدم رابط مباشر أفضل.');
+            }
             const reader = new FileReader();
             reader.onload = function(event) {
                 const imageDataUrl = event.target.result;
@@ -670,22 +660,31 @@ function uploadLocalImage(type) {
                     const preview = document.getElementById('logoPreview');
                     if (preview) { preview.src = imageDataUrl; preview.style.display = 'block'; }
                     sets.logo = imageDataUrl;
-                    toast('✅ تم رفع الشعار بنجاح');
-                    applyUI();
+                    toast('✅ تم تحميل الشعار محلياً - لا تنس حفظ التغييرات');
                 } else if (type === 'meal') {
                     const preview = document.getElementById('mprev');
                     if (preview) { preview.innerHTML = `<img src="${imageDataUrl}" style="max-width:120px;max-height:120px;border-radius:12px;object-fit:cover" alt="معاينة">`; }
                     window.mealImageUrl = imageDataUrl;
-                    toast('✅ تم رفع صورة الطبق بنجاح');
+                    toast('✅ تم رفع صورة الطبق');
                 } else if (type === 'cat') {
                     window.catImageUrl = imageDataUrl;
-                    toast('✅ تم رفع صورة القسم بنجاح');
+                    toast('✅ تم رفع صورة القسم');
                 }
             };
             reader.readAsDataURL(file);
         }
     };
     input.click();
+}
+
+function setLogoFromUrl() {
+    const url = prompt('🔗 أدخل رابط الصورة المباشر (URL):', sets.logo || '');
+    if (url && url.trim()) {
+        sets.logo = url.trim();
+        const preview = document.getElementById('logoPreview');
+        if (preview) { preview.src = sets.logo; preview.style.display = 'block'; }
+        toast('✅ تم تعيين رابط الصورة - لا تنس حفظ التغييرات');
+    }
 }
 
 function uploadCatImageLocal(index) {
@@ -711,8 +710,8 @@ function uploadCatImageLocal(index) {
     input.click();
 }
 
-// ==================== 🔐 نظام الرمز السري ====================
-const ADMIN_PIN = "4753"; // 🔑 الرمز السري للدخول
+// ==================== نظام الرمز السري ====================
+const ADMIN_PIN = "4753";
 
 function openAuthModal() {
     if (admin) {
@@ -748,7 +747,6 @@ function checkPin() {
     }
 }
 
-// حدث ضغط Enter على مربع الرمز
 document.addEventListener('DOMContentLoaded', function() {
     const pinInput = document.getElementById('adminPin');
     if (pinInput) {
@@ -900,15 +898,16 @@ async function init() {
         updateLoadingProgress(10, 'جاري الاتصال بالخادم...');
         const [fs, fct] = await Promise.all([ld('settings'), ld('categories')]);
         updateLoadingProgress(40, 'تحميل الأقسام...');
-        if (fs) sets = fs;
+        if (fs) {
+            sets = {...DEF.settings, ...fs};
+        }
         if (fct) cats = fct;
         
         const savedTheme = localStorage.getItem('active_theme');
         if (savedTheme && ThemeEngine.themes[savedTheme]) {
             ThemeEngine.apply(savedTheme);
-        } else {
-            applyUI();
         }
+        applyUI();
         renderCats();
         
         updateLoadingProgress(60, 'تحميل الوجبات...');
@@ -942,7 +941,7 @@ async function init() {
         
         const savedTheme = localStorage.getItem('active_theme');
         if (savedTheme && ThemeEngine.themes[savedTheme]) ThemeEngine.apply(savedTheme);
-        else applyUI();
+        applyUI();
         applyMarquee(); renderCats();
         setTimeout(() => { hideSplashScreen(); toast('⚠️ تم استخدام البيانات الاحتياطية'); }, 300);
     }
@@ -957,14 +956,31 @@ function applyUI() {
     const logoImage = document.getElementById('logoImage');
     const logoSub = document.getElementById('logoSub');
     
-    if (sets.logo) {
+    // تحديث اسم المطعم دائماً
+    if (logoText) {
+        logoText.innerText = sets.name || DEF.settings.name;
+    }
+    
+    // تحديث النص التحتاني دائماً
+    if (logoSub) {
+        logoSub.innerText = sets.sub || DEF.settings.sub;
+    }
+    
+    // إظهار/إخفاء الصورة حسب وجود اللوجو
+    if (sets.logo && sets.logo.trim() !== '' && sets.logo !== 'undefined') {
         if (logoText) logoText.style.display = 'none';
-        if (logoImage) { logoImage.style.display = 'block'; logoImage.src = sets.logo; }
+        if (logoImage) { 
+            logoImage.style.display = 'block'; 
+            logoImage.src = sets.logo;
+            logoImage.onerror = function() {
+                this.style.display = 'none';
+                if (logoText) logoText.style.display = 'block';
+            };
+        }
     } else {
-        if (logoText) { logoText.style.display = 'block'; logoText.innerText = sets.name || DEF.settings.name; }
+        if (logoText) logoText.style.display = 'block';
         if (logoImage) logoImage.style.display = 'none';
     }
-    if (logoSub) logoSub.innerText = sets.sub || DEF.settings.sub;
     
     const wl = document.getElementById('wl'), fl = document.getElementById('fl'), il = document.getElementById('il'), tl = document.getElementById('tl');
     if (wl) wl.href = 'https://wa.me/' + (sets.whatsapp || '966512345678');
@@ -1046,7 +1062,7 @@ async function renderOffers() {
     if (!d) return;
     if (!offs || offs.length === 0) { d.innerHTML = ''; return; }
     
-    d.innerHTML = `<h3 style="color:var(--gold);margin:15px 0 10px" id="offersTitle">🎁 العروض الخاصة</h3><div class="meals-grid" id="offersGrid"></div>`;
+    d.innerHTML = `<h3 style="color:var(--gold);margin:15px 0 10px" id="offersTitle">العروض الخاصة</h3><div class="meals-grid" id="offersGrid"></div>`;
     const offersGrid = document.getElementById('offersGrid');
     
     for (const o of offs) {
@@ -1218,24 +1234,42 @@ function copyLink() {
     try { document.execCommand('copy'); toast('📋 تم نسخ الرابط'); } catch(e) { navigator.clipboard.writeText(shareLink.value).then(() => toast('📋 تم نسخ الرابط')).catch(() => toast('❌ فشل النسخ')); }
 }
 function oRest() {
-    document.getElementById('rn').value = sets.name || '';
-    document.getElementById('rs').value = sets.sub || '';
+    document.getElementById('rn').value = sets.name || DEF.settings.name;
+    document.getElementById('rs').value = sets.sub || DEF.settings.sub;
     document.getElementById('bg').value = sets.bg || '#1a1111';
     document.getElementById('gd').value = sets.gold || '#c9a84c';
     document.getElementById('tx').value = sets.text || '#ffffff';
     document.getElementById('wn').value = sets.whatsapp || '';
     const preview = document.getElementById('logoPreview');
-    if (preview && sets.logo) { preview.src = sets.logo; preview.style.display = 'block'; }
+    if (preview && sets.logo && sets.logo !== 'undefined') { 
+        preview.src = sets.logo; 
+        preview.style.display = 'block'; 
+    } else if (preview) {
+        preview.style.display = 'none';
+    }
     showModal('restModal');
 }
 async function sRest() {
-    sets.name = document.getElementById('rn').value || sets.name;
-    sets.sub = document.getElementById('rs').value || '';
+    const newName = document.getElementById('rn').value;
+    const newSub = document.getElementById('rs').value;
+    
+    if (newName !== undefined && newName !== null) sets.name = newName;
+    if (newSub !== undefined && newSub !== null) sets.sub = newSub;
+    
     sets.bg = document.getElementById('bg').value || '#1a1111';
     sets.gold = document.getElementById('gd').value || '#c9a84c';
     sets.text = document.getElementById('tx').value || '#ffffff';
     sets.whatsapp = document.getElementById('wn').value || '';
-    await sv('settings', sets); applyUI(); toast("✅ تم حفظ الإعدادات"); goBack();
+    
+    const preview = document.getElementById('logoPreview');
+    if (preview && preview.src && preview.style.display !== 'none') {
+        sets.logo = preview.src;
+    }
+    
+    await sv('settings', sets);
+    applyUI();
+    toast("✅ تم حفظ الإعدادات بنجاح");
+    goBack();
 }
 function oCartSettings() {
     document.getElementById('orderWhatsApp').value = cartSets.orderWhatsApp || sets.whatsapp || '';
@@ -1370,8 +1404,8 @@ async function saveMeal() {
     if (catId===eCat) renderMeals(); loadMgr(); goBack(); toast("✅ تم حفظ الطبق بنجاح"); window.mealImageUrl = null;
 }
 async function delMeal() { if (eIdx===-1) return; if (!eCat||!meals[eCat]) return; const m=meals[eCat][eIdx]; if(!m) return; if(!confirm('هل أنت متأكد من حذف: '+(m.name_ar||'الطبق')+'؟')) return; meals[eCat].splice(eIdx,1); await sv('mealsData', meals); if(catId===eCat) renderMeals(); loadMgr(); goBack(); toast('🗑️ تم حذف الطبق'); }
-function doExport() { const data={settings:sets,cartSettings:cartSets,social:soc,offers:offs,stats:stt,marquee:marq,categories:cats,mealsData:meals,version:"18.0"}; const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='backup_majd_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); toast('📀 تم تحميل النسخة الاحتياطية'); goBack(); }
-function doImport() { const inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=function(e){ const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=async function(ev){ try{ const d=JSON.parse(ev.target.result); if(d.mealsData){meals=d.mealsData;await sv('mealsData',meals);} if(d.categories){cats=d.categories;await sv('categories',cats);} if(d.offers){offs=d.offers;await sv('offers',offs);} if(d.settings){sets=d.settings;await sv('settings',sets);} if(d.cartSettings){cartSets=d.cartSettings;await sv('cartSettings',cartSets);} if(d.social){soc=d.social;await sv('social',soc);} if(d.stats){stt=d.stats;await sv('stats',stt);} if(d.marquee){marq=d.marquee;await sv('marquee',marq);} applyUI();applyMarquee();renderCats();toast('✅ تمت استعادة النسخة الاحتياطية بنجاح');goBack(); }catch(err){toast('❌ الملف غير صالح أو تالف');} }; r.readAsText(file); }; inp.click(); }
+function doExport() { const data={settings:sets,cartSettings:cartSets,social:soc,offers:offs,stats:stt,marquee:marq,categories:cats,mealsData:meals,version:"19.0"}; const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='backup_majd_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); toast('📀 تم تحميل النسخة الاحتياطية'); goBack(); }
+function doImport() { const inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=function(e){ const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=async function(ev){ try{ const d=JSON.parse(ev.target.result); if(d.mealsData){meals=d.mealsData;await sv('mealsData',meals);} if(d.categories){cats=d.categories;await sv('categories',cats);} if(d.offers){offs=d.offers;await sv('offers',offs);} if(d.settings){sets={...DEF.settings,...d.settings};await sv('settings',sets);} if(d.cartSettings){cartSets=d.cartSettings;await sv('cartSettings',cartSets);} if(d.social){soc=d.social;await sv('social',soc);} if(d.stats){stt=d.stats;await sv('stats',stt);} if(d.marquee){marq=d.marquee;await sv('marquee',marq);} applyUI();applyMarquee();renderCats();toast('✅ تمت استعادة النسخة الاحتياطية بنجاح');goBack(); }catch(err){toast('❌ الملف غير صالح أو تالف');} }; r.readAsText(file); }; inp.click(); }
 async function doReset() { if(!confirm('⚠️ تحذير: سيتم حذف جميع البيانات وإعادة الضبط للمصنع!\n\nهل أنت متأكد؟ لا يمكن التراجع عن هذا الإجراء.')) return; if(!confirm('تأكيد نهائي: هل تريد فعلاً إعادة ضبط كل شيء؟')) return; try{ await Promise.all([sv('settings',DEF.settings),sv('cartSettings',DEF.cartSettings),sv('social',DEF.social),sv('offers',DEF.offers),sv('stats',DEF.stats),sv('marquee',DEF.marquee),sv('categories',DEF.categories),sv('mealsData',DEF.mealsData)]); localStorage.removeItem('adminEmail'); location.reload(); }catch(err){ toast('❌ فشلت إعادة الضبط. حاول مجدداً.'); } }
 
 // ==================== EVENT LISTENERS ====================
@@ -1414,7 +1448,7 @@ if ('serviceWorker' in navigator) {
 // ==================== START ====================
 init();
 renderLang();
-console.log('🚀 مطاعم مجد - v18 مع حماية الرمز السري');
+console.log('🚀 مطاعم مجد - v19 مع إصلاح اللوجو والاسم');
 </script>
 </body>
 </html>
