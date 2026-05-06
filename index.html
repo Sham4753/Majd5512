@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     
     <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
@@ -191,7 +192,18 @@
     <a href="#" id="fl" target="_blank" title="Facebook"><i class="fab fa-facebook-f"></i></a>
     <a href="#" id="il" target="_blank" title="Instagram"><i class="fab fa-instagram"></i></a>
     <a href="#" id="tl" target="_blank" title="TikTok"><i class="fab fa-tiktok"></i></a>
+    <span class="share-moment-btn" id="shareMomentBtn" title="📸 شاركنا لحظتك" style="cursor:pointer;font-size:22px;color:#fff;animation:pulse 2s infinite">📸</span>
 </div>
+
+<div class="share-popup" id="sharePopup" style="display:none;position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#2a1a1a;border:2px solid #c9a84c;border-radius:20px;padding:20px;z-index:1000;text-align:center;min-width:280px">
+    <p style="color:#c9a84c;margin-bottom:15px;font-weight:bold">📸 اختر طريقة التصوير</p>
+    <button id="btnCameraPopup" style="background:#c9a84c;color:#1a1111;border:none;padding:14px;border-radius:12px;font-weight:bold;font-size:16px;cursor:pointer;width:100%;margin-bottom:8px;font-family:'Cairo'">📷 فتح الكاميرا</button>
+    <button id="btnGalleryPopup" style="background:#3a2a2a;color:#fff;border:2px solid #c9a84c;padding:14px;border-radius:12px;font-weight:bold;font-size:16px;cursor:pointer;width:100%;margin-bottom:8px;font-family:'Cairo'">🖼️ اختر من المعرض</button>
+    <button id="btnCancelPopup" style="background:transparent;color:#ff4444;border:none;padding:8px;cursor:pointer;font-size:14px;font-family:'Cairo'">❌ إلغاء</button>
+</div>
+
+<input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="galleryInput" accept="image/*" style="display:none">
 
 <div class="toast" id="toast"></div>
 
@@ -263,6 +275,7 @@
         <button class="admin-btn" onclick="oStats()">📊 الإحصائيات</button>
         <button class="admin-btn" onclick="oShare()">📲 QR Code</button>
         <button class="admin-btn" onclick="oMgr()">🍔 إدارة الأطباق</button>
+        <button class="admin-btn" onclick="oPhotos()">📸 صور الزبائن</button>
         <button class="admin-btn" onclick="doExport()">💾 نسخ احتياطي</button>
         <button class="admin-btn" onclick="doImport()">📀 استعادة نسخة</button>
         <button class="admin-btn" style="background:#8B0000" onclick="doReset()">⚠️ إعادة ضبط المصنع</button>
@@ -399,6 +412,15 @@
     </div>
 </div>
 
+<div id="photosModal" class="modal">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h3>📸 صور الزبائن</h3>
+        <div id="photosList"></div>
+        <button class="admin-btn" style="background:#8B0000;margin-top:10px" onclick="clearAllPhotos()">🗑️ حذف جميع الصور</button>
+        <button class="admin-btn" style="background:var(--accent);color:#fff;margin-top:5px" onclick="goBack()">🔙 رجوع</button>
+    </div>
+</div>
+
 <script>
 // ==================== FIREBASE CONFIG ====================
 const firebaseConfig = {
@@ -414,6 +436,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
+const storage = firebase.storage();
 
 // ==================== AI TRANSLATION ENGINE ====================
 const TranslationEngine = {
@@ -1408,6 +1431,127 @@ function doExport() { const data={settings:sets,cartSettings:cartSets,social:soc
 function doImport() { const inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=function(e){ const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=async function(ev){ try{ const d=JSON.parse(ev.target.result); if(d.mealsData){meals=d.mealsData;await sv('mealsData',meals);} if(d.categories){cats=d.categories;await sv('categories',cats);} if(d.offers){offs=d.offers;await sv('offers',offs);} if(d.settings){sets={...DEF.settings,...d.settings};await sv('settings',sets);} if(d.cartSettings){cartSets=d.cartSettings;await sv('cartSettings',cartSets);} if(d.social){soc=d.social;await sv('social',soc);} if(d.stats){stt=d.stats;await sv('stats',stt);} if(d.marquee){marq=d.marquee;await sv('marquee',marq);} applyUI();applyMarquee();renderCats();toast('✅ تمت استعادة النسخة الاحتياطية بنجاح');goBack(); }catch(err){toast('❌ الملف غير صالح أو تالف');} }; r.readAsText(file); }; inp.click(); }
 async function doReset() { if(!confirm('⚠️ تحذير: سيتم حذف جميع البيانات وإعادة الضبط للمصنع!\n\nهل أنت متأكد؟ لا يمكن التراجع عن هذا الإجراء.')) return; if(!confirm('تأكيد نهائي: هل تريد فعلاً إعادة ضبط كل شيء؟')) return; try{ await Promise.all([sv('settings',DEF.settings),sv('cartSettings',DEF.cartSettings),sv('social',DEF.social),sv('offers',DEF.offers),sv('stats',DEF.stats),sv('marquee',DEF.marquee),sv('categories',DEF.categories),sv('mealsData',DEF.mealsData)]); localStorage.removeItem('adminEmail'); location.reload(); }catch(err){ toast('❌ فشلت إعادة الضبط. حاول مجدداً.'); } }
 
+// ==================== كود المشاركة ====================
+const shareMomentBtn = document.getElementById('shareMomentBtn');
+const sharePopup = document.getElementById('sharePopup');
+const btnCameraPopup = document.getElementById('btnCameraPopup');
+const btnGalleryPopup = document.getElementById('btnGalleryPopup');
+const btnCancelPopup = document.getElementById('btnCancelPopup');
+const cameraInput = document.getElementById('cameraInput');
+const galleryInput = document.getElementById('galleryInput');
+
+if (shareMomentBtn) {
+    shareMomentBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        sharePopup.style.display = 'block';
+    });
+}
+
+if (btnCancelPopup) {
+    btnCancelPopup.addEventListener('click', function() {
+        sharePopup.style.display = 'none';
+    });
+}
+
+document.addEventListener('click', function(e) {
+    if (sharePopup && sharePopup.style.display === 'block') {
+        if (!sharePopup.contains(e.target) && e.target !== shareMomentBtn) {
+            sharePopup.style.display = 'none';
+        }
+    }
+});
+
+if (btnCameraPopup && cameraInput) {
+    btnCameraPopup.addEventListener('click', function() {
+        sharePopup.style.display = 'none';
+        cameraInput.click();
+    });
+}
+
+if (btnGalleryPopup && galleryInput) {
+    btnGalleryPopup.addEventListener('click', function() {
+        sharePopup.style.display = 'none';
+        galleryInput.click();
+    });
+}
+
+async function uploadCustomerPhoto(file) {
+    shareMomentBtn.innerHTML = '⏳';
+    shareMomentBtn.style.animation = 'spin 1s linear infinite';
+    
+    try {
+        const timestamp = Date.now();
+        const fileName = 'customer_' + timestamp;
+        const storageRef = storage.ref();
+        const uploadRef = storageRef.child('customer_uploads/' + fileName);
+        
+        await uploadRef.put(file);
+        const downloadURL = await uploadRef.getDownloadURL();
+        
+        await db.ref('display_photos').push({
+            url: downloadURL,
+            time: timestamp,
+            name: fileName
+        });
+        
+        toast('✅ شكراً! صورتك ظهرت على الشاشة');
+    } catch(err) {
+        console.error('Upload error:', err);
+        toast('❌ حدث خطأ، حاول مرة أخرى');
+    }
+    
+    shareMomentBtn.innerHTML = '📸';
+    shareMomentBtn.style.animation = 'pulse 2s infinite';
+}
+
+if (cameraInput) {
+    cameraInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) { uploadCustomerPhoto(file); cameraInput.value = ''; }
+    });
+}
+
+if (galleryInput) {
+    galleryInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) { uploadCustomerPhoto(file); galleryInput.value = ''; }
+    });
+}
+
+// ==================== إدارة صور الزبائن ====================
+function oPhotos() {
+    showModal('photosModal');
+    db.ref('display_photos').get().then(snapshot => {
+        const photosList = document.getElementById('photosList');
+        if (!snapshot.exists()) {
+            photosList.innerHTML = '<p style="opacity:0.5;text-align:center;padding:20px">لا توجد صور زبائن</p>';
+            return;
+        }
+        const photos = snapshot.val();
+        photosList.innerHTML = Object.entries(photos).map(([key, photo]) => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--accent);border-radius:8px;margin:5px 0;gap:10px">
+                <img src="${photo.url}" style="width:45px;height:45px;border-radius:6px;object-fit:cover">
+                <span style="font-size:11px;opacity:0.7;flex:1">${new Date(photo.time).toLocaleString('ar-SA')}</span>
+                <button class="admin-btn" style="background:#8B0000;width:auto;padding:5px 12px;font-size:12px;margin:0" onclick="deletePhoto('${key}')">🗑️</button>
+            </div>
+        `).join('');
+    });
+}
+
+async function deletePhoto(key) {
+    if (!confirm('هل أنت متأكد من حذف هذه الصورة؟')) return;
+    await db.ref('display_photos/' + key).remove();
+    toast('🗑️ تم حذف الصورة');
+    oPhotos();
+}
+
+async function clearAllPhotos() {
+    if (!confirm('⚠️ حذف جميع صور الزبائن؟')) return;
+    await db.ref('display_photos').remove();
+    toast('🗑️ تم حذف جميع الصور');
+    goBack();
+}
+
 // ==================== EVENT LISTENERS ====================
 document.getElementById('btnCartSend')?.addEventListener('click', function(e) {
     if (!cart.length) { e.preventDefault(); toast("⚠️ السلة فارغة، أضف أطباقاً أولاً."); return; }
@@ -1448,7 +1592,7 @@ if ('serviceWorker' in navigator) {
 // ==================== START ====================
 init();
 renderLang();
-console.log('🚀 مطاعم مجد - v19 مع إصلاح اللوجو والاسم');
+console.log('🚀 مطاعم مجد - v20 مع نظام مشاركة صور الزبائن');
 </script>
 </body>
 </html>
