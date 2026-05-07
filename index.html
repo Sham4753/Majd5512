@@ -1404,7 +1404,49 @@ function editM(id, i) {
     document.getElementById('mealEditTitle').textContent = 'تعديل: ' + (m.name_ar || 'طبق'); showModal('mealEditModal');
 }
 async function delM(id, i) { if (!meals[id]) return; const m = meals[id][i]; if (!m) return; if (!confirm('هل أنت متأكد من حذف: '+(m.name_ar||'الطبق')+'؟')) return; meals[id].splice(i,1); await sv('mealsData', meals); loadMgr(); if (catId===id) renderMeals(); toast('🗑️ تم حذف الطبق'); }
-function addMeal() { const id = document.getElementById('mgrCat')?.value; if (!id) { toast('❌ الرجاء اختيار القسم أولاً'); return; } eCat=id; eIdx=-1; ['mna','mne','mda','mde'].forEach(x => { const el=document.getElementById(x); if(el) el.value=''; }); const mq=document.getElementById('mq'); if(mq) mq.value=''; const mprev=document.getElementById('mprev'); if(mprev) mprev.innerHTML=''; tSizes=[{name_ar:"وجبة",name_en:"Meal",price:5}]; renderSz(); document.getElementById('delMealBtn').style.display='none'; document.getElementById('mealEditTitle').textContent='إضافة طبق جديد'; showModal('mealEditModal'); window.mealImageUrl = null; }
+
+// ========== دالة addMeal المُحسَّنة ==========
+function addMeal() { 
+    const id = document.getElementById('mgrCat')?.value; 
+    if (!id) { 
+        toast('❌ الرجاء اختيار القسم أولاً من القائمة المنسدلة'); 
+        return; 
+    }
+    
+    eCat = id; 
+    eIdx = -1;
+    
+    // تنظيف الحقول
+    ['mna','mne','mda','mde'].forEach(x => { 
+        const el = document.getElementById(x); 
+        if(el) el.value = ''; 
+    });
+    
+    const mq = document.getElementById('mq'); 
+    if(mq) mq.value = '';
+    
+    const mprev = document.getElementById('mprev'); 
+    if(mprev) mprev.innerHTML = '';
+    
+    // إعداد أحجام الوجبة default
+    tSizes = [{name_ar: "وجبة", name_en: "Meal", price: 5}];
+    renderSz();
+    
+    // إخفاء زر الحذف
+    document.getElementById('delMealBtn').style.display = 'none';
+    
+    // تحديث العنوان
+    document.getElementById('mealEditTitle').textContent = `إضافة طبق جديد إلى: ${id}`;
+    
+    // فتح المودال
+    showModal('mealEditModal');
+    
+    // تنظيف الصورة السابقة
+    window.mealImageUrl = null;
+    
+    toast(`✅ جاري إضافة طبق إلى القسم: ${id}`);
+}
+
 function renderSz() {
     const container = document.getElementById('szContainer'); if (!container) return;
     if (!tSizes || tSizes.length===0) tSizes=[{name_ar:"وجبة",name_en:"Meal",price:5}];
@@ -1412,22 +1454,138 @@ function renderSz() {
 }
 function addSz() { tSizes.push({name_ar:"خيار جديد",name_en:"New Option",price:5}); renderSz(); }
 function delSz(i) { if (tSizes.length<=1) { toast("❌ يجب وجود خيار واحد على الأقل"); return; } tSizes.splice(i,1); renderSz(); }
+
+// ========== دالة saveMeal المُحسَّنة ==========
 async function saveMeal() {
-    if (!eCat) { toast("❌ خطأ: لم يتم تحديد القسم"); return; }
-    const ns = []; for (let i=0; i<tSizes.length; i++) { const nameArEl=document.getElementById('sza_'+i), nameEnEl=document.getElementById('sze_'+i), priceEl=document.getElementById('szp_'+i); ns.push({name_ar:nameArEl?.value||tSizes[i].name_ar||'خيار',name_en:nameEnEl?.value||tSizes[i].name_en||'Option',price:parseFloat(priceEl?.value)||tSizes[i].price||5}); }
+    // التحقق من القسم
+    if (!eCat || eCat === 'null' || eCat === 'undefined' || eCat === '') {
+        toast("❌ خطأ: لم يتم تحديد القسم. الرجاء اختيار قسم من القائمة.");
+        console.error("eCat is invalid:", eCat);
+        return;
+    }
+    
+    // التحقق من وجود الوجبات للقسم
+    if (!meals[eCat]) {
+        console.warn("meals[eCat] was undefined, initializing empty array");
+        meals[eCat] = [];
+    }
+    
+    // التحقق من أن meals[eCat] مصفوفة
+    if (!Array.isArray(meals[eCat])) {
+        toast("❌ خطأ في هيكل البيانات. جاري التصحيح...");
+        meals[eCat] = [];
+    }
+    
+    // تجميع الأحجام
+    const ns = [];
+    for (let i = 0; i < tSizes.length; i++) { 
+        const nameArEl = document.getElementById('sza_'+i);
+        const nameEnEl = document.getElementById('sze_'+i);
+        const priceEl = document.getElementById('szp_'+i);
+        
+        ns.push({
+            name_ar: nameArEl?.value || tSizes[i].name_ar || 'خيار',
+            name_en: nameEnEl?.value || tSizes[i].name_en || 'Option',
+            price: parseFloat(priceEl?.value) || tSizes[i].price || 5
+        }); 
+    }
+    
+    // تجهيز الصورة
     let img = window.mealImageUrl || '';
-    const existingMeal = (eIdx>=0 && meals[eCat]) ? meals[eCat][eIdx] : null;
+    const existingMeal = (eIdx >= 0 && meals[eCat]) ? meals[eCat][eIdx] : null;
     if (!img && existingMeal) img = existingMeal.img || '';
     if (!img || !img.trim()) img = 'https://res.cloudinary.com/demo/image/upload/v1/sample';
-    const qtyVal = document.getElementById('mq')?.value; const qty = (qtyVal!==null&&qtyVal!==undefined&&qtyVal!=='') ? parseInt(qtyVal) : null;
-    const meal = { name_ar:document.getElementById('mna')?.value||'طبق جديد', name_en:document.getElementById('mne')?.value||'New Meal', desc_ar:document.getElementById('mda')?.value||'', desc_en:document.getElementById('mde')?.value||'', img:img, qty:qty, sizes:ns.length?ns:[{name_ar:"وجبة",name_en:"Meal",price:5}] };
-    if (!meals[eCat]) meals[eCat] = [];
-    if (eIdx===-1) meals[eCat].push(meal); else meals[eCat][eIdx]=meal;
-    const success = await sv('mealsData', meals); if (!success) { toast("❌ فشل حفظ الطبق. حاول مجدداً."); return; }
-    if (catId===eCat) renderMeals(); loadMgr(); goBack(); toast("✅ تم حفظ الطبق بنجاح"); window.mealImageUrl = null;
+    
+    // تجهيز الكمية
+    const qtyVal = document.getElementById('mq')?.value; 
+    const qty = (qtyVal !== null && qtyVal !== undefined && qtyVal !== '') ? parseInt(qtyVal) : null;
+    
+    // بناء كائن الوجبة
+    const meal = { 
+        name_ar: document.getElementById('mna')?.value || 'طبق جديد', 
+        name_en: document.getElementById('mne')?.value || 'New Meal', 
+        desc_ar: document.getElementById('mda')?.value || '', 
+        desc_en: document.getElementById('mde')?.value || '', 
+        img: img, 
+        qty: qty, 
+        sizes: ns.length ? ns : [{name_ar: "وجبة", name_en: "Meal", price: 5}] 
+    };
+    
+    console.log("🔍 محاولة حفظ الوجبة:", {
+        category: eCat,
+        index: eIdx,
+        mealData: meal,
+        totalMealsInCategory: meals[eCat].length
+    });
+    
+    try {
+        // إضافة أو تعديل الوجبة في المصفوفة
+        if (eIdx === -1) {
+            meals[eCat].push(meal);
+            console.log("➕ إضافة وجبة جديدة إلى", eCat);
+        } else {
+            if (meals[eCat][eIdx]) {
+                meals[eCat][eIdx] = meal;
+                console.log("✏️ تعديل وجبة موجودة في", eCat, "index:", eIdx);
+            } else {
+                toast("❌ خطأ: الوجبة غير موجودة للتعديل");
+                return;
+            }
+        }
+        
+        // حفظ في Firebase
+        const success = await sv('mealsData', meals); 
+        
+        if (!success) { 
+            toast("❌ فشل حفظ الطبق في قاعدة البيانات. تحقق من اتصال الإنترنت.");
+            console.error("فشل حفظ mealsData إلى Firebase");
+            // استرجاع التغييرات
+            if (eIdx === -1) {
+                meals[eCat].pop();
+            }
+            return; 
+        }
+        
+        // تحديث الواجهة
+        if (catId === eCat) {
+            renderMeals();
+        }
+        
+        // إعادة تحميل قائمة الإدارة
+        loadMgr();
+        
+        // إغلاق المودال
+        goBack();
+        
+        // إشعار المستخدم
+        const action = eIdx === -1 ? 'إضافة' : 'تعديل';
+        toast(`✅ تم ${action} الطبق بنجاح: ${meal.name_ar}`);
+        
+        // تنظيف
+        window.mealImageUrl = null;
+        
+        console.log("✅ تم حفظ الوجبة بنجاح في Firebase");
+        
+        // تحديث localStorage للنسخ الاحتياطي
+        try {
+            localStorage.setItem('meals_backup', JSON.stringify(meals));
+        } catch(e) {
+            // localStorage قد يكون ممتلئ
+        }
+        
+    } catch(error) {
+        console.error("❌ خطأ غير متوقع في saveMeal:", error);
+        toast("❌ حدث خطأ أثناء الحفظ. حاول مجدداً.");
+        
+        // استرجاع التغييرات
+        if (eIdx === -1) {
+            meals[eCat].pop();
+        }
+    }
 }
+
 async function delMeal() { if (eIdx===-1) return; if (!eCat||!meals[eCat]) return; const m=meals[eCat][eIdx]; if(!m) return; if(!confirm('هل أنت متأكد من حذف: '+(m.name_ar||'الطبق')+'؟')) return; meals[eCat].splice(eIdx,1); await sv('mealsData', meals); if(catId===eCat) renderMeals(); loadMgr(); goBack(); toast('🗑️ تم حذف الطبق'); }
-function doExport() { const data={settings:sets,cartSettings:cartSets,social:soc,offers:offs,stats:stt,marquee:marq,categories:cats,mealsData:meals,version:"19.0"}; const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='backup_majd_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); toast('📀 تم تحميل النسخة الاحتياطية'); goBack(); }
+function doExport() { const data={settings:sets,cartSettings:cartSets,social:soc,offers:offs,stats:stt,marquee:marq,categories:cats,mealsData:meals,version:"20.0"}; const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='backup_majd_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); toast('📀 تم تحميل النسخة الاحتياطية'); goBack(); }
 function doImport() { const inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=function(e){ const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=async function(ev){ try{ const d=JSON.parse(ev.target.result); if(d.mealsData){meals=d.mealsData;await sv('mealsData',meals);} if(d.categories){cats=d.categories;await sv('categories',cats);} if(d.offers){offs=d.offers;await sv('offers',offs);} if(d.settings){sets={...DEF.settings,...d.settings};await sv('settings',sets);} if(d.cartSettings){cartSets=d.cartSettings;await sv('cartSettings',cartSets);} if(d.social){soc=d.social;await sv('social',soc);} if(d.stats){stt=d.stats;await sv('stats',stt);} if(d.marquee){marq=d.marquee;await sv('marquee',marq);} applyUI();applyMarquee();renderCats();toast('✅ تمت استعادة النسخة الاحتياطية بنجاح');goBack(); }catch(err){toast('❌ الملف غير صالح أو تالف');} }; r.readAsText(file); }; inp.click(); }
 async function doReset() { if(!confirm('⚠️ تحذير: سيتم حذف جميع البيانات وإعادة الضبط للمصنع!\n\nهل أنت متأكد؟ لا يمكن التراجع عن هذا الإجراء.')) return; if(!confirm('تأكيد نهائي: هل تريد فعلاً إعادة ضبط كل شيء؟')) return; try{ await Promise.all([sv('settings',DEF.settings),sv('cartSettings',DEF.cartSettings),sv('social',DEF.social),sv('offers',DEF.offers),sv('stats',DEF.stats),sv('marquee',DEF.marquee),sv('categories',DEF.categories),sv('mealsData',DEF.mealsData)]); localStorage.removeItem('adminEmail'); location.reload(); }catch(err){ toast('❌ فشلت إعادة الضبط. حاول مجدداً.'); } }
 
@@ -1475,28 +1633,66 @@ if (btnGalleryPopup && galleryInput) {
     });
 }
 
+// دالة ضغط الصورة قبل الحفظ
+function compressImage(file, maxWidth, maxHeight, quality) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                let width = img.width;
+                let height = img.height;
+                
+                // تصغير الأبعاد إذا كانت أكبر من المسموح
+                if (width > maxWidth) {
+                    height = height * (maxWidth / width);
+                    width = maxWidth;
+                }
+                if (height > maxHeight) {
+                    width = width * (maxHeight / height);
+                    height = maxHeight;
+                }
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                resolve(compressedBase64);
+            };
+            img.onerror = reject;
+            img.src = event.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// دالة رفع الصورة (جديدة - بدون Storage)
 async function uploadCustomerPhoto(file) {
     shareMomentBtn.innerHTML = '⏳';
     shareMomentBtn.style.animation = 'spin 1s linear infinite';
     
     try {
         const timestamp = Date.now();
-        const fileName = 'customer_' + timestamp;
-        const storageRef = storage.ref();
-        const uploadRef = storageRef.child('customer_uploads/' + fileName);
         
-        await uploadRef.put(file);
-        const downloadURL = await uploadRef.getDownloadURL();
+        // ضغط الصورة لتوفير المساحة (800px عرض، جودة 60%)
+        const compressedImage = await compressImage(file, 800, 800, 0.6);
         
+        // حفظ الصورة مباشرة في Realtime Database
         await db.ref('display_photos').push({
-            url: downloadURL,
+            url: compressedImage,
             time: timestamp,
-            name: fileName
+            name: 'customer_' + timestamp
         });
         
         toast('✅ شكراً! صورتك ظهرت على الشاشة');
+        console.log('✅ تم حفظ الصورة بنجاح في قاعدة البيانات');
+        
     } catch(err) {
-        console.error('Upload error:', err);
+        console.error('❌ فشل الرفع:', err);
         toast('❌ حدث خطأ، حاول مرة أخرى');
     }
     
@@ -1592,7 +1788,7 @@ if ('serviceWorker' in navigator) {
 // ==================== START ====================
 init();
 renderLang();
-console.log('🚀 مطاعم مجد - v20 مع نظام مشاركة صور الزبائن');
+console.log('🚀 مطاعم مجد - v20 مع نظام مشاركة صور الزبائن - نسخة محسنة');
 </script>
 </body>
 </html>
